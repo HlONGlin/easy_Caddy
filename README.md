@@ -1,8 +1,10 @@
-通过（wget https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh -O /tmp/easyCaddy.sh && chmod +x /tmp/easyCaddy.sh && /tmp/easyCaddy.sh
-）一键部署
-实现功能为
-           Caddy 一键部署 & 管理脚本          
-=============================================
+一键部署
+
+wget https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh -O /tmp/easyCaddy.sh && chmod +x /tmp/easyCaddy.sh && /tmp/easyCaddy.sh
+
+实现功能
+
+Caddy 一键部署 & 管理脚本  ==================
  1) 安装 Caddy（如已安装则跳过）
  2) 配置 & 启用反向代理
  3) 查看 Caddy 服务状态
