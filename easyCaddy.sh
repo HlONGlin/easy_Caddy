@@ -2,11 +2,12 @@
 # caddy_proxy_tool.sh
 # 功能：
 #   1) 自动安装/卸载 Caddy
-#   2) 配置反向代理（支持多个反向代理）
-#   3) 查看 Caddy 服务状态
-#   4) 删除指定的反向代理配置
-#   5) 重启 Caddy 服务
-#   6) 一键删除 Caddy（卸载并删除配置文件）
+#   2) 配置反向代理（支持多个反向代理，配置时只需输入上游服务端口）
+#   3) 查看 Caddy 服务状态（在菜单界面显示）
+#   4) 查看当前反向代理配置，并显示上游服务是否在运行
+#   5) 删除指定的反向代理配置
+#   6) 重启 Caddy 服务
+#   7) 一键删除 Caddy（卸载并删除配置文件）
 # 适用于 Debian/Ubuntu 系列系统
 
 # Caddyfile 默认路径
@@ -58,32 +59,51 @@ function install_caddy() {
 }
 
 #--------------------------------------------
-# 配置反向代理
+# 检查指定端口服务是否在运行
+#--------------------------------------------
+function check_port_running() {
+    local port=$1
+    if timeout 1 bash -c "echo > /dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+        echo "运行中"
+    else
+        echo "未运行"
+    fi
+}
+
+#--------------------------------------------
+# 配置反向代理（只需输入上游服务端口，默认使用 http://127.0.0.1:端口）
 #--------------------------------------------
 function setup_reverse_proxy() {
-    echo "请输入要使用的域名（例如 example.com）:"
-    read domain
-    echo "请输入上游服务地址（例如 http://127.0.0.1:8080）:"
-    read upstream
+    echo "请输入上游服务端口（例如 8080）："
+    read port
+    if [ -z "$port" ]; then
+        echo "端口输入不能为空。"
+        return
+    fi
+    # 自动构造上游地址
+    upstream="http://127.0.0.1:${port}"
 
     # 检查 Caddyfile 是否备份过，没有则备份一下
     if [ ! -f "$BACKUP_CADDYFILE" ]; then
         sudo cp "$CADDYFILE" "$BACKUP_CADDYFILE"
     fi
 
-    # 添加新的反向代理配置到 Caddyfile
-    echo "配置反向代理：$domain -> $upstream"
-    echo "$domain {
+    # 添加新的反向代理配置到 Caddyfile，使用通配符 * 表示所有域名
+    echo "配置反向代理：* -> $upstream"
+    echo "* {
     reverse_proxy $upstream
 }" | sudo tee -a "$CADDYFILE" >/dev/null
 
     # 将配置信息保存到代理配置列表文件
-    echo "$domain -> $upstream" >> "$PROXY_CONFIG_FILE"
+    echo "* -> $upstream" >> "$PROXY_CONFIG_FILE"
 
-    # 重启 Caddy
+    # 重启 Caddy 以应用配置
     echo "正在重启 Caddy 服务以应用新配置..."
     sudo systemctl restart caddy
 
+    # 检查上游服务状态
+    status=$(check_port_running "$port")
+    echo "上游服务（127.0.0.1:${port}）状态：$status"
     echo "Caddy 服务状态："
     sudo systemctl status caddy --no-pager
 }
@@ -101,12 +121,19 @@ function show_caddy_status() {
 }
 
 #--------------------------------------------
-# 查看反向代理配置
+# 查看反向代理配置，并显示上游服务状态
 #--------------------------------------------
 function show_reverse_proxies() {
     if [ -f "$PROXY_CONFIG_FILE" ]; then
         echo "当前反向代理配置："
-        cat -n "$PROXY_CONFIG_FILE"
+        lineno=0
+        while IFS= read -r line; do
+            lineno=$((lineno+1))
+            # 从配置行中提取端口（假定格式为 "* -> http://127.0.0.1:端口"）
+            port=$(echo "$line" | grep -oE '[0-9]{2,5}$')
+            status=$(check_port_running "$port")
+            echo "${lineno}) ${line} [上游服务状态：$status]"
+        done < "$PROXY_CONFIG_FILE"
     else
         echo "没有配置任何反向代理。"
     fi
@@ -124,14 +151,25 @@ function delete_reverse_proxy() {
         return
     fi
 
-    # 读取反向代理配置文件并删除对应的行
+    # 删除对应行
     sed -i "${proxy_number}d" "$PROXY_CONFIG_FILE"
 
-    # 重新生成 Caddyfile 配置
+    # 重新生成 Caddyfile 配置（恢复为备份版本）
     echo "重新生成 Caddyfile 配置..."
     sudo cp "$BACKUP_CADDYFILE" "$CADDYFILE"
 
-    # 重新加载配置
+    # 根据代理配置列表重新添加剩余配置
+    if [ -f "$PROXY_CONFIG_FILE" ]; then
+        while IFS= read -r line; do
+            # 将每行格式 "* -> http://127.0.0.1:端口" 转换成 Caddyfile 配置块
+            upstream=$(echo "$line" | awk -F' -> ' '{print $2}')
+            echo "* {
+    reverse_proxy $upstream
+}" | sudo tee -a "$CADDYFILE" >/dev/null
+        done < "$PROXY_CONFIG_FILE"
+    fi
+
+    # 重启 Caddy 服务
     echo "重启 Caddy 服务..."
     sudo systemctl restart caddy
     echo "反向代理删除成功！"
@@ -181,16 +219,23 @@ function remove_caddy() {
 }
 
 #--------------------------------------------
-# 显示菜单
+# 显示菜单（顶部显示 Caddy 运行状态）
 #--------------------------------------------
 function show_menu() {
     echo "============================================="
+    # 显示 Caddy 运行状态
+    caddy_status=$(systemctl is-active caddy 2>/dev/null)
+    if [ "$caddy_status" == "active" ]; then
+        echo "Caddy 状态：运行中"
+    else
+        echo "Caddy 状态：未运行"
+    fi
     echo "           Caddy 一键部署 & 管理脚本          "
     echo "============================================="
     echo " 1) 安装 Caddy（如已安装则跳过）"
-    echo " 2) 配置 & 启用反向代理"
+    echo " 2) 配置 & 启用反向代理（只需输入上游端口）"
     echo " 3) 查看 Caddy 服务状态"
-    echo " 4) 查看当前反向代理配置"
+    echo " 4) 查看当前反向代理配置（显示上游服务状态）"
     echo " 5) 删除指定的反向代理"
     echo " 6) 重启 Caddy 服务"
     echo " 7) 卸载 Caddy（删除配置）"
