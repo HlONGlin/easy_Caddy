@@ -1,7 +1,10 @@
-一键部署
+## 一键安装 Caddy 服务
+
+通过以下命令一键安装和启动 Caddy 服务：
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh | bash
+
 
 实现功能
 
