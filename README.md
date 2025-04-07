@@ -18,6 +18,3 @@ Caddy 一键部署 & 管理脚本  ==================
 
 ```bash
 bash -c "$(curl -sSL https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh)"
-
-
-
