@@ -111,6 +111,18 @@ modify_proxy() {
   fi
 }
 
+# 一键删除并卸载 Nginx
+uninstall_nginx() {
+  echo "正在删除所有反向代理配置..."
+  rm -rf /etc/nginx/sites-available/*
+  rm -rf /etc/nginx/sites-enabled/*
+  systemctl stop nginx
+  systemctl disable nginx
+  apt remove --purge -y nginx nginx-common nginx-full
+  apt autoremove -y
+  echo "Nginx 已卸载，所有反向代理配置已删除！"
+}
+
 # 主菜单
 while true; do
   # 显示 Nginx 状态
@@ -124,7 +136,8 @@ while true; do
   echo "4. 查看所有反向代理配置"
   echo "5. 修改反向代理配置"
   echo "6. 重启 Nginx"
-  echo "7. 退出"
+  echo "7. 一键删除并卸载 Nginx"
+  echo "8. 退出"
   read -p "请选择操作： " choice
   
   case $choice in
@@ -147,6 +160,10 @@ while true; do
       restart_nginx
       ;;
     7)
+      uninstall_nginx
+      exit 0
+      ;;
+    8)
       echo "退出脚本"
       exit 0
       ;;
