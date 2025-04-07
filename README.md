@@ -17,4 +17,5 @@ Caddy 一键部署 & 管理脚本  ==================
 通过以下命令一键安装和启动 Caddy 服务：
 
 ```bash
-bash -c "$(curl -sSL https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh)"
+curl -o easyCaddy.sh https://raw.githubusercontent.com/HlONGlin/easy_Caddy/refs/heads/main/easyCaddy.sh && chmod +x easyCaddy.sh && ./easyCaddy.sh
+
