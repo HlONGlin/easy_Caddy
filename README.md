@@ -1,6 +1,6 @@
 一键部署
 
-wget https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh -O /tmp/easyCaddy.sh && chmod +x /tmp/easyCaddy.sh && /tmp/easyCaddy.sh
+bash -c "$(curl -sSL https://raw.githubusercontent.com/HlONGlin/Caddy-/9d4cfbc1a8c3180b231181283db86ba8d63b5010/easyCaddy.sh)"
 
 实现功能
 
