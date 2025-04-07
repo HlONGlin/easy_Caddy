@@ -2,7 +2,7 @@
 # caddy_proxy_tool.sh
 # 功能：
 #   1) 自动安装/卸载 Caddy
-#   2) 配置反向代理（支持多个反向代理，配置时只需输入上游服务端口）
+#   2) 配置反向代理
 #   3) 查看 Caddy 服务状态（在菜单界面显示）
 #   4) 查看当前反向代理配置，并显示上游服务是否在运行
 #   5) 删除指定的反向代理配置
@@ -71,16 +71,23 @@ function check_port_running() {
 }
 
 #--------------------------------------------
-# 配置反向代理（只需输入上游服务端口，默认使用 http://127.0.0.1:端口）
+# 配置反向代理（输入域名及上游服务端口，自动构造上游地址）
 #--------------------------------------------
 function setup_reverse_proxy() {
+    echo "请输入域名（例如 example.com）："
+    read domain
+    if [ -z "$domain" ]; then
+        echo "域名输入不能为空。"
+        return
+    fi
+
     echo "请输入上游服务端口（例如 8080）："
     read port
     if [ -z "$port" ]; then
         echo "端口输入不能为空。"
         return
     fi
-    # 自动构造上游地址
+
     upstream="http://127.0.0.1:${port}"
 
     # 检查 Caddyfile 是否备份过，没有则备份一下
@@ -88,14 +95,14 @@ function setup_reverse_proxy() {
         sudo cp "$CADDYFILE" "$BACKUP_CADDYFILE"
     fi
 
-    # 添加新的反向代理配置到 Caddyfile，使用通配符 * 表示所有域名
-    echo "配置反向代理：* -> $upstream"
-    echo "* {
-    reverse_proxy $upstream
+    # 添加新的反向代理配置到 Caddyfile
+    echo "配置反向代理：${domain} -> ${upstream}"
+    echo "${domain} {
+    reverse_proxy ${upstream}
 }" | sudo tee -a "$CADDYFILE" >/dev/null
 
     # 将配置信息保存到代理配置列表文件
-    echo "* -> $upstream" >> "$PROXY_CONFIG_FILE"
+    echo "${domain} -> ${upstream}" >> "$PROXY_CONFIG_FILE"
 
     # 重启 Caddy 以应用配置
     echo "正在重启 Caddy 服务以应用新配置..."
@@ -129,7 +136,7 @@ function show_reverse_proxies() {
         lineno=0
         while IFS= read -r line; do
             lineno=$((lineno+1))
-            # 从配置行中提取端口（假定格式为 "* -> http://127.0.0.1:端口"）
+            # 从配置行中提取端口（假定格式为 "域名 -> http://127.0.0.1:端口"）
             port=$(echo "$line" | grep -oE '[0-9]{2,5}$')
             status=$(check_port_running "$port")
             echo "${lineno}) ${line} [上游服务状态：$status]"
@@ -161,10 +168,11 @@ function delete_reverse_proxy() {
     # 根据代理配置列表重新添加剩余配置
     if [ -f "$PROXY_CONFIG_FILE" ]; then
         while IFS= read -r line; do
-            # 将每行格式 "* -> http://127.0.0.1:端口" 转换成 Caddyfile 配置块
+            # 解析格式 "域名 -> http://127.0.0.1:端口"
+            domain=$(echo "$line" | awk -F' -> ' '{print $1}')
             upstream=$(echo "$line" | awk -F' -> ' '{print $2}')
-            echo "* {
-    reverse_proxy $upstream
+            echo "${domain} {
+    reverse_proxy ${upstream}
 }" | sudo tee -a "$CADDYFILE" >/dev/null
         done < "$PROXY_CONFIG_FILE"
     fi
@@ -233,7 +241,7 @@ function show_menu() {
     echo "           Caddy 一键部署 & 管理脚本          "
     echo "============================================="
     echo " 1) 安装 Caddy（如已安装则跳过）"
-    echo " 2) 配置 & 启用反向代理（只需输入上游端口）"
+    echo " 2) 配置 & 启用反向代理（输入域名及上游端口）"
     echo " 3) 查看 Caddy 服务状态"
     echo " 4) 查看当前反向代理配置（显示上游服务状态）"
     echo " 5) 删除指定的反向代理"
